@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "748227604610",
+    "project_id": "movieverse-b959c",
+    "storage_bucket": "movieverse-b959c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:748227604610:android:22c1326cb92124ce32449b",
+        "android_client_info": {
+          "package_name": "com.movieverse.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "748227604610-maa9ikhvna2vq9rr08rpi5fpvtn62r55.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.movieverse.app",
+            "certificate_hash": "e0bf3bb82308490f20c01b2e14747c69bba9fa92"
+          }
+        },
+        {
+          "client_id": "748227604610-6ph2kn61dkh5j96vluqvkeqlb9sq8ibt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4fujPEAW7i7DH7EJhJ_7fN-VIwzmP3PA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "748227604610-6ph2kn61dkh5j96vluqvkeqlb9sq8ibt.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
