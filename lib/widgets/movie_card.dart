@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import '../models/movie.dart';
 import '../config/theme.dart';
 import 'common/poster_image.dart';
@@ -32,72 +33,72 @@ class _MovieCardState extends State<MovieCard> {
   bool _isLoading = false;
   final FirestoreService _firestoreService = FirestoreService();
   String? _previousMovieId;
+  StreamSubscription<bool>? _watchStatusSubscription;
+  StreamSubscription<bool>? _favoriteStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _previousMovieId = widget.movie.id.toString();
-    _checkIfFavorite();
-    _checkIfWatched();
+    _subscribeToFavoriteStatus();
+    _subscribeToWatchStatus();
   }
 
   @override
   void didUpdateWidget(MovieCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Check if movie ID changed or if we need to refresh favorite status
+    // Check if movie ID changed or if we need to refresh status
     if (oldWidget.movie.id != widget.movie.id) {
       _previousMovieId = widget.movie.id.toString();
-      _checkIfFavorite();
-      _checkIfWatched();
+      _subscribeToFavoriteStatus();
+      _subscribeToWatchStatus();
     }
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Refresh favorite status when dependencies change
-    // This helps when navigating back from details screen
-    _checkIfFavorite();
-    _checkIfWatched();
+  void dispose() {
+    _watchStatusSubscription?.cancel();
+    _favoriteStatusSubscription?.cancel();
+    super.dispose();
   }
 
-  Future<void> _checkIfFavorite() async {
+  void _subscribeToFavoriteStatus() {
+    // Cancel existing subscription if any
+    _favoriteStatusSubscription?.cancel();
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    try {
-      final isFavorite = await _firestoreService.isFavorite(
-          user.uid, widget.movie.id.toString());
-
-      if (mounted) {
+    // Subscribe to real-time favorite status updates
+    _favoriteStatusSubscription = _firestoreService
+        .getFavoriteStatusStream(user.uid, widget.movie.id.toString())
+        .listen((isFavorite) {
+      if (mounted && _isFavorite != isFavorite) {
         setState(() {
           _isFavorite = isFavorite;
         });
       }
-    } catch (e) {
-      // Silently fail
-      print('Error checking favorite status: $e');
-    }
+    });
   }
 
-  Future<void> _checkIfWatched() async {
+  void _subscribeToWatchStatus() {
+    // Cancel existing subscription if any
+    _watchStatusSubscription?.cancel();
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    try {
-      final isWatched = await _firestoreService.isWatched(
-          user.uid, widget.movie.id.toString());
-
-      if (mounted) {
+    // Subscribe to real-time watch status updates
+    _watchStatusSubscription = _firestoreService
+        .getWatchStatusStream(user.uid, widget.movie.id.toString())
+        .listen((isWatched) {
+      if (mounted && _isWatched != isWatched) {
         setState(() {
           _isWatched = isWatched;
         });
       }
-    } catch (e) {
-      // Silently fail
-      print('Error checking watched status: $e');
-    }
+    });
   }
 
   Future<void> _toggleFavorite() async {
@@ -108,16 +109,8 @@ class _MovieCardState extends State<MovieCard> {
       _isLoading = true;
     });
 
-    // Store previous state to revert if operation fails
-    final previousState = _isFavorite;
-
-    // Optimistic UI update
-    setState(() {
-      _isFavorite = !_isFavorite;
-    });
-
     try {
-      if (previousState) {
+      if (_isFavorite) {
         // Remove from favorites
         await _firestoreService.removeFromFavorites(
             user.uid, widget.movie.id.toString());
@@ -126,13 +119,6 @@ class _MovieCardState extends State<MovieCard> {
         await _firestoreService.addToFavorites(user.uid, widget.movie.toJson());
       }
     } catch (e) {
-      // Revert to previous state if operation fails
-      if (mounted) {
-        setState(() {
-          _isFavorite = previousState;
-        });
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update favorites: ${e.toString()}'),

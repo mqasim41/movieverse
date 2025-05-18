@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import '../models/movie.dart';
 import '../services/tmdb_api_service.dart';
 import '../services/firestore_service.dart';
@@ -16,8 +17,17 @@ class HomeViewModel extends ChangeNotifier {
   List<Movie> _recommendations = [];
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<List<Map<String, dynamic>>>? _favoritesSubscription;
 
-  HomeViewModel(this._apiService);
+  HomeViewModel(this._apiService) {
+    _subscribeToFavorites();
+  }
+
+  @override
+  void dispose() {
+    _favoritesSubscription?.cancel();
+    super.dispose();
+  }
 
   List<Movie> get popular => _popular;
   List<Movie> get favorites => _favorites;
@@ -25,6 +35,30 @@ class HomeViewModel extends ChangeNotifier {
   List<Movie> get recommendations => _recommendations;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  void _subscribeToFavorites() {
+    // Cancel existing subscription if any
+    _favoritesSubscription?.cancel();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (_favorites.isNotEmpty) {
+        _favorites = [];
+        notifyListeners();
+      }
+      return;
+    }
+
+    // Subscribe to real-time favorites updates
+    _favoritesSubscription =
+        _firestoreService.getFavoritesStream(user.uid).listen((favoriteMovies) {
+      _favorites = favoriteMovies.map((movieData) {
+        return Movie.fromJson(movieData);
+      }).toList();
+
+      notifyListeners();
+    });
+  }
 
   // Load popular movies from API
   Future<void> loadPopular() async {
@@ -43,10 +77,9 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  // Load favorite movies from Firestore
+  // Legacy method kept for compatibility, now just ensures subscription is active
   Future<void> loadFavorites() async {
     final user = FirebaseAuth.instance.currentUser;
-    // If no user is logged in, just clear favorites and return
     if (user == null) {
       if (_favorites.isNotEmpty) {
         _favorites = [];
@@ -55,22 +88,9 @@ class HomeViewModel extends ChangeNotifier {
       return;
     }
 
-    _setLoading(true);
-    _error = null;
-
-    try {
-      final favoriteMovies = await _firestoreService.getFavorites(user.uid);
-
-      _favorites = favoriteMovies.map((movieData) {
-        return Movie.fromJson(movieData);
-      }).toList();
-
-      notifyListeners();
-    } catch (e) {
-      _error = 'Failed to load favorites: ${e.toString()}';
-      notifyListeners();
-    } finally {
-      _setLoading(false);
+    // Make sure subscription is active
+    if (_favoritesSubscription == null) {
+      _subscribeToFavorites();
     }
   }
 
@@ -136,23 +156,13 @@ class HomeViewModel extends ChangeNotifier {
         // Remove from favorites
         await _firestoreService.removeFromFavorites(
             user.uid, movie.id.toString());
-
-        // Update favorites list
-        _favorites.removeWhere((m) => m.id == movie.id);
       } else {
         // Add to favorites
         await _firestoreService.addToFavorites(user.uid, movie.toJson());
-
-        // Add to favorites list
-        if (!_favorites.any((m) => m.id == movie.id)) {
-          _favorites.add(movie);
-        }
       }
 
       // Refresh recommendations when favorites change
       loadRecommendations();
-
-      notifyListeners();
     } catch (e) {
       _error = 'Failed to update favorites: ${e.toString()}';
       notifyListeners();

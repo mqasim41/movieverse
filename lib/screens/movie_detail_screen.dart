@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../models/movie.dart';
 import '../services/tmdb_api_service.dart';
 import '../services/firestore_service.dart';
@@ -31,52 +32,53 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   bool _isLoadingWatched = false;
   final FirestoreService _firestoreService = FirestoreService();
   final TmdbApiService _tmdbService = TmdbApiService();
+  StreamSubscription<bool>? _favoriteStatusSubscription;
+  StreamSubscription<bool>? _watchStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     // Get full movie details from API
     _movieFuture = _tmdbService.getMovieDetails(widget.movie.id);
-    _checkIfFavorite();
-    _checkIfWatched();
+    _subscribeToFavoriteStatus();
+    _subscribeToWatchStatus();
   }
 
-  Future<void> _checkIfFavorite() async {
+  @override
+  void dispose() {
+    _favoriteStatusSubscription?.cancel();
+    _watchStatusSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeToFavoriteStatus() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    try {
-      final isFavorite = await _firestoreService.isFavorite(
-          user.uid, widget.movie.id.toString());
-
-      if (mounted) {
+    _favoriteStatusSubscription = _firestoreService
+        .getFavoriteStatusStream(user.uid, widget.movie.id.toString())
+        .listen((isFavorite) {
+      if (mounted && _isFavorite != isFavorite) {
         setState(() {
           _isFavorite = isFavorite;
         });
       }
-    } catch (e) {
-      // Silently fail
-      debugPrint('Error checking favorite status: $e');
-    }
+    });
   }
 
-  Future<void> _checkIfWatched() async {
+  void _subscribeToWatchStatus() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    try {
-      final isWatched = await _firestoreService.isWatched(
-          user.uid, widget.movie.id.toString());
-
-      if (mounted) {
+    _watchStatusSubscription = _firestoreService
+        .getWatchStatusStream(user.uid, widget.movie.id.toString())
+        .listen((isWatched) {
+      if (mounted && _isWatched != isWatched) {
         setState(() {
           _isWatched = isWatched;
         });
       }
-    } catch (e) {
-      // Silently fail
-      debugPrint('Error checking watched status: $e');
-    }
+    });
   }
 
   Future<void> _toggleFavorite(Movie movie) async {
@@ -96,13 +98,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         // Add to favorites
         await _firestoreService.addToFavorites(user.uid, movie.toJson());
       }
-
-      if (mounted) {
-        setState(() {
-          _isFavorite = !_isFavorite;
-          _isLoadingFavorite = false;
-        });
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -111,6 +106,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoadingFavorite = false;
         });
@@ -135,13 +133,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         // Add to watch history
         await _firestoreService.addToWatchHistory(user.uid, movie.toJson());
       }
-
-      if (mounted) {
-        setState(() {
-          _isWatched = !_isWatched;
-          _isLoadingWatched = false;
-        });
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -150,6 +141,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoadingWatched = false;
         });

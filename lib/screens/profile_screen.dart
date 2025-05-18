@@ -20,6 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   Stream<Map<String, dynamic>?>? _profileStream;
   Stream<int>? _watchHistoryCountStream;
+  Stream<int>? _favoritesCountStream;
 
   @override
   void initState() {
@@ -33,6 +34,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _profileStream = _firestoreService.getUserProfileStream(user.uid);
       _watchHistoryCountStream =
           _firestoreService.getWatchHistoryCountStream(user.uid);
+      _favoritesCountStream =
+          _firestoreService.getFavoritesCountStream(user.uid);
     }
   }
 
@@ -89,8 +92,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             userProfile?['displayName'] ?? user.displayName ?? 'User';
         final email = userProfile?['email'] ?? user.email ?? '';
         final photoURL = userProfile?['photoURL'] ?? user.photoURL;
-        final favoritesCount =
-            (userProfile?['favorites'] as List?)?.length ?? 0;
         final memberSince = userProfile?['createdAt'] != null
             ? ((userProfile!['createdAt'] as Timestamp).toDate())
             : null;
@@ -154,12 +155,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildStatItem(
-                        icon: Icons.favorite,
-                        label: 'Favorites',
-                        value: favoritesCount.toString(),
-                        theme: theme,
-                        color: Colors.red,
+                      StreamBuilder<int>(
+                        stream: _favoritesCountStream,
+                        builder: (context, snapshot) {
+                          final favoritesCount = snapshot.data ?? 0;
+                          return _buildStatItem(
+                            icon: Icons.favorite,
+                            label: 'Favorites',
+                            value: favoritesCount.toString(),
+                            theme: theme,
+                            color: Colors.red,
+                          );
+                        },
                       ),
                       StreamBuilder<int>(
                         stream: _watchHistoryCountStream,

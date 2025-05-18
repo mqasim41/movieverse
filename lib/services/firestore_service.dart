@@ -136,6 +136,26 @@ class FirestoreService {
     return doc.exists;
   }
 
+  // Get a real-time stream of whether a movie is in user's favorites
+  Stream<bool> getFavoriteStatusStream(String userId, String movieId) {
+    return _firestore
+        .collection('favorites')
+        .doc('$userId-$movieId')
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  // Get a real-time stream of user's favorite movies
+  Stream<List<Map<String, dynamic>>> getFavoritesStream(String userId) {
+    return _firestore
+        .collection('favorites')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => doc.data()['movie'] as Map<String, dynamic>)
+            .toList());
+  }
+
   // Check if a movie is in user's watch history
   Future<bool> isWatched(String userId, String movieId) async {
     final doc = await _firestore
@@ -144,6 +164,15 @@ class FirestoreService {
         .get();
 
     return doc.exists;
+  }
+
+  // Get a real-time stream of whether a movie is in the user's watch history
+  Stream<bool> getWatchStatusStream(String userId, String movieId) {
+    return _firestore
+        .collection('watchHistory')
+        .doc('$userId-$movieId')
+        .snapshots()
+        .map((doc) => doc.exists);
   }
 
   // WATCH HISTORY
@@ -205,6 +234,15 @@ class FirestoreService {
   Stream<int> getWatchHistoryCountStream(String userId) {
     return _firestore
         .collection('watchHistory')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  // Get favorites count
+  Stream<int> getFavoritesCountStream(String userId) {
+    return _firestore
+        .collection('favorites')
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
