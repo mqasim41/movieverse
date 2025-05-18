@@ -8,6 +8,7 @@ import 'dart:io';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/openai_service.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'services/tmdb_api_service.dart';
 import 'services/recommendation_service.dart';
@@ -26,6 +27,9 @@ Future<void> main() async {
     // Load env variables - don't fail if .env file is missing
     try {
       await dotenv.load(fileName: ".env");
+
+      // Initialize OpenAI service with API key from env
+      OpenAIService.initialize();
     } catch (e) {
       print('Warning: Failed to load .env file: $e');
       // Set default API key if env file is missing

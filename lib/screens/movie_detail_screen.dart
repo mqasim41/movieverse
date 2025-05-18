@@ -7,6 +7,7 @@ import '../services/firestore_service.dart';
 import '../config/theme.dart';
 import '../widgets/common/poster_image.dart';
 import '../widgets/common/rating_badge.dart';
+import 'chat_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
   final Movie movie;
@@ -204,6 +205,20 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 _isLoadingWatched ? null : () => _toggleWatched(widget.movie),
           ),
 
+          // Chat button
+          IconButton(
+            icon: const Icon(Icons.chat_outlined),
+            tooltip: 'Ask AI about this movie',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatScreen(movie: widget.movie),
+                ),
+              );
+            },
+          ),
+
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: () {
@@ -214,6 +229,18 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(movie: widget.movie),
+            ),
+          );
+        },
+        tooltip: 'Chat about this movie',
+        child: const Icon(Icons.chat),
       ),
       body: FutureBuilder<Movie>(
         future: _movieFuture,
