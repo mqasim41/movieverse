@@ -25,7 +25,9 @@ class MovieDetailScreen extends StatefulWidget {
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
   late Future<Movie> _movieFuture;
   bool _isFavorite = false;
-  bool _isLoading = false;
+  bool _isWatched = false;
+  bool _isLoadingFavorite = false;
+  bool _isLoadingWatched = false;
   final FirestoreService _firestoreService = FirestoreService();
   final TmdbApiService _tmdbService = TmdbApiService();
 
@@ -35,12 +37,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     // Get full movie details from API
     _movieFuture = _tmdbService.getMovieDetails(widget.movie.id);
     _checkIfFavorite();
-
-    // Record this movie in watch history if user is logged in
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      _firestoreService.addToWatchHistory(user.uid, widget.movie.toJson());
-    }
+    _checkIfWatched();
   }
 
   Future<void> _checkIfFavorite() async {
@@ -62,12 +59,31 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     }
   }
 
+  Future<void> _checkIfWatched() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final isWatched = await _firestoreService.isWatched(
+          user.uid, widget.movie.id.toString());
+
+      if (mounted) {
+        setState(() {
+          _isWatched = isWatched;
+        });
+      }
+    } catch (e) {
+      // Silently fail
+      debugPrint('Error checking watched status: $e');
+    }
+  }
+
   Future<void> _toggleFavorite(Movie movie) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     setState(() {
-      _isLoading = true;
+      _isLoadingFavorite = true;
     });
 
     try {
@@ -83,7 +99,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       if (mounted) {
         setState(() {
           _isFavorite = !_isFavorite;
-          _isLoading = false;
+          _isLoadingFavorite = false;
         });
       }
     } catch (e) {
@@ -95,7 +111,46 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           ),
         );
         setState(() {
-          _isLoading = false;
+          _isLoadingFavorite = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleWatched(Movie movie) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() {
+      _isLoadingWatched = true;
+    });
+
+    try {
+      if (_isWatched) {
+        // Remove from watch history
+        await _firestoreService.removeFromWatchHistory(
+            user.uid, movie.id.toString());
+      } else {
+        // Add to watch history
+        await _firestoreService.addToWatchHistory(user.uid, movie.toJson());
+      }
+
+      if (mounted) {
+        setState(() {
+          _isWatched = !_isWatched;
+          _isLoadingWatched = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update watch status: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isLoadingWatched = false;
         });
       }
     }
@@ -109,8 +164,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       appBar: AppBar(
         title: Text(widget.movie.title),
         actions: [
+          // Favorite button
           IconButton(
-            icon: _isLoading
+            tooltip: _isFavorite ? 'Remove from favorites' : 'Add to favorites',
+            icon: _isLoadingFavorite
                 ? const SizedBox(
                     width: 20,
                     height: 20,
@@ -123,8 +180,30 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     _isFavorite ? Icons.favorite : Icons.favorite_border,
                     color: _isFavorite ? Colors.red : null,
                   ),
-            onPressed: _isLoading ? null : () => _toggleFavorite(widget.movie),
+            onPressed:
+                _isLoadingFavorite ? null : () => _toggleFavorite(widget.movie),
           ),
+
+          // Watched button
+          IconButton(
+            tooltip: _isWatched ? 'Mark as unwatched' : 'Mark as watched',
+            icon: _isLoadingWatched
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(
+                    _isWatched ? Icons.visibility : Icons.visibility_outlined,
+                    color: _isWatched ? Colors.green : null,
+                  ),
+            onPressed:
+                _isLoadingWatched ? null : () => _toggleWatched(widget.movie),
+          ),
+
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: () {

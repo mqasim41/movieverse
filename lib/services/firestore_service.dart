@@ -46,6 +46,15 @@ class FirestoreService {
     return doc.data();
   }
 
+  // Get a real-time stream of user profile data
+  Stream<Map<String, dynamic>?> getUserProfileStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map((snapshot) => snapshot.data());
+  }
+
   // FAVORITES COLLECTION
 
   // Add movie to favorites
@@ -127,6 +136,16 @@ class FirestoreService {
     return doc.exists;
   }
 
+  // Check if a movie is in user's watch history
+  Future<bool> isWatched(String userId, String movieId) async {
+    final doc = await _firestore
+        .collection('watchHistory')
+        .doc('$userId-$movieId')
+        .get();
+
+    return doc.exists;
+  }
+
   // WATCH HISTORY
 
   // Add movie to watch history
@@ -140,6 +159,15 @@ class FirestoreService {
       'movie': movie,
       'watchedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  // Remove movie from watch history
+  Future<void> removeFromWatchHistory(String userId, String movieId) async {
+    // Delete from watch history collection
+    await _firestore
+        .collection('watchHistory')
+        .doc('$userId-$movieId')
+        .delete();
   }
 
   // Get user's watch history
@@ -171,6 +199,15 @@ class FirestoreService {
         rethrow;
       }
     }
+  }
+
+  // Get watch history count
+  Stream<int> getWatchHistoryCountStream(String userId) {
+    return _firestore
+        .collection('watchHistory')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
   }
 
   Future<void> saveRating(String uid, int movieId, int rating) async {

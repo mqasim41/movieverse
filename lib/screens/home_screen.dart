@@ -9,6 +9,7 @@ import '../config/theme.dart';
 import 'profile_screen.dart';
 import 'movie_detail_screen.dart';
 import '../models/movie.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,23 +22,19 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final _searchController = TextEditingController();
   bool _isSearching = false;
+  bool _showLegend = true;
 
   @override
   void initState() {
     super.initState();
     // Use post-frame callback to avoid calling setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadInitialData();
+      // Check if we need to load data
+      final vm = context.read<HomeViewModel>();
+      if (vm.popular.isEmpty && !vm.isLoading) {
+        vm.loadPopular();
+      }
     });
-  }
-
-  Future<void> _loadInitialData() async {
-    final vm = context.read<HomeViewModel>();
-    await vm.loadPopular();
-    await vm.loadFavorites();
-    await vm.loadRecommendations();
-
-    // Preloading removed for now as it might be causing issues
   }
 
   @override
@@ -70,6 +67,91 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? _buildErrorWidget(vm.error!)
                       : CustomScrollView(
                           slivers: [
+                            // Icon legend (only show when user is logged in and on main screen)
+                            if (FirebaseAuth.instance.currentUser != null &&
+                                _selectedIndex == 0 &&
+                                _showLegend)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(
+                                      AppTheme.paddingMedium),
+                                  child: Card(
+                                    color: theme.colorScheme.surface,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(
+                                          AppTheme.paddingMedium),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'Movie Actions',
+                                                style: theme
+                                                    .textTheme.titleMedium
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.close),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _showLegend = false;
+                                                  });
+                                                },
+                                                tooltip: 'Dismiss',
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: _buildLegendItem(
+                                                  icon: Icons.favorite,
+                                                  color: Colors.red,
+                                                  label: 'Add to Favorites',
+                                                  description:
+                                                      'Movies you love and want to save',
+                                                  theme: theme,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              Expanded(
+                                                child: _buildLegendItem(
+                                                  icon: Icons.visibility,
+                                                  color: Colors.green,
+                                                  label: 'Mark as Watched',
+                                                  description:
+                                                      'Movies you have seen',
+                                                  theme: theme,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          const Divider(),
+                                          Center(
+                                            child: Text(
+                                              'Tap a movie to see details and manage your watch status',
+                                              style: theme.textTheme.bodySmall,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
                             if (_selectedIndex == 0 &&
                                 vm.recommendations.isNotEmpty)
                               SliverToBoxAdapter(
@@ -425,7 +507,10 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(errorMessage),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadInitialData,
+              onPressed: () {
+                final vm = context.read<HomeViewModel>();
+                vm.loadPopular();
+              },
               child: const Text('Retry'),
             ),
           ],
@@ -555,5 +640,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return _buildMovieGrid(favorites, theme);
+  }
+
+  Widget _buildLegendItem({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String description,
+    required ThemeData theme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          description,
+          style: theme.textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
   }
 }

@@ -28,6 +28,7 @@ class MovieCard extends StatefulWidget {
 
 class _MovieCardState extends State<MovieCard> {
   bool _isFavorite = false;
+  bool _isWatched = false;
   bool _isLoading = false;
   final FirestoreService _firestoreService = FirestoreService();
   String? _previousMovieId;
@@ -37,6 +38,7 @@ class _MovieCardState extends State<MovieCard> {
     super.initState();
     _previousMovieId = widget.movie.id.toString();
     _checkIfFavorite();
+    _checkIfWatched();
   }
 
   @override
@@ -47,6 +49,7 @@ class _MovieCardState extends State<MovieCard> {
     if (oldWidget.movie.id != widget.movie.id) {
       _previousMovieId = widget.movie.id.toString();
       _checkIfFavorite();
+      _checkIfWatched();
     }
   }
 
@@ -56,6 +59,7 @@ class _MovieCardState extends State<MovieCard> {
     // Refresh favorite status when dependencies change
     // This helps when navigating back from details screen
     _checkIfFavorite();
+    _checkIfWatched();
   }
 
   Future<void> _checkIfFavorite() async {
@@ -74,6 +78,25 @@ class _MovieCardState extends State<MovieCard> {
     } catch (e) {
       // Silently fail
       print('Error checking favorite status: $e');
+    }
+  }
+
+  Future<void> _checkIfWatched() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final isWatched = await _firestoreService.isWatched(
+          user.uid, widget.movie.id.toString());
+
+      if (mounted) {
+        setState(() {
+          _isWatched = isWatched;
+        });
+      }
+    } catch (e) {
+      // Silently fail
+      print('Error checking watched status: $e');
     }
   }
 
@@ -184,6 +207,48 @@ class _MovieCardState extends State<MovieCard> {
                           ),
                         ),
                       ),
+
+                      // Watched indicator at bottom left
+                      if (user != null && _isWatched)
+                        Positioned(
+                          bottom: AppTheme.paddingSmall,
+                          left: AppTheme.paddingSmall,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: widget.compact
+                                ? const Icon(
+                                    Icons.visibility,
+                                    color: Colors.white,
+                                    size: 14,
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.visibility,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Watched',
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
 
                       // Rating badge at top right
                       Positioned(
