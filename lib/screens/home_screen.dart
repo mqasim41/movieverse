@@ -32,6 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final vm = context.read<HomeViewModel>();
     await vm.loadPopular();
     await vm.loadFavorites();
+
+    // Preloading removed for now as it might be causing issues
   }
 
   @override

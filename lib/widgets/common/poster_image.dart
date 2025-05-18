@@ -10,6 +10,7 @@ class PosterImage extends StatelessWidget {
   final BoxFit fit;
   final BorderRadius? borderRadius;
   final bool showShadow;
+  final bool highQuality;
 
   const PosterImage({
     super.key,
@@ -18,33 +19,36 @@ class PosterImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.borderRadius,
     this.showShadow = false,
+    this.highQuality = false, // Default to lower quality for faster loading
   });
 
-  /// Base URL for TMDb poster images - trying larger size first
-  static const _baseImageUrl = 'https://image.tmdb.org/t/p/w780';
-
-  /// Fallback to a lower resolution if the w780 fails
-  static const _fallbackImageUrl = 'https://image.tmdb.org/t/p/w500';
-
-  /// Second fallback to even lower resolution
-  static const _fallbackImageUrl2 = 'https://image.tmdb.org/t/p/w342';
-
-  /// Final fallback to the lowest resolution
-  static const _fallbackImageUrl3 = 'https://image.tmdb.org/t/p/w185';
+  // TMDb image URL base
+  static const String _imageBaseUrl = 'https://image.tmdb.org/t/p/';
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isPosterPathValid = posterPath.isNotEmpty;
 
-    // Only attempt to load image if we have a valid path
-    if (!isPosterPathValid) {
+    // Get appropriate size based on quality needs
+    final imageSize = highQuality ? 'w500' : 'w185';
+
+    // Check if we have a valid path to work with
+    if (posterPath.isEmpty) {
       return _buildErrorPlaceholder(theme);
     }
 
-    final fullImageUrl = posterPath.startsWith('http')
-        ? posterPath
-        : '$_baseImageUrl$posterPath';
+    // Construct the full URL - handle both relative paths from API and absolute URLs
+    final String imageUrl;
+    if (posterPath.startsWith('http')) {
+      imageUrl = posterPath;
+    } else if (posterPath.startsWith('/')) {
+      imageUrl = '$_imageBaseUrl$imageSize$posterPath';
+    } else {
+      imageUrl = '$_imageBaseUrl$imageSize/$posterPath';
+    }
+
+    // For debugging - to see the actual URLs being constructed
+    print('Loading image: $imageUrl');
 
     return AspectRatio(
       aspectRatio: aspectRatio,
@@ -63,64 +67,51 @@ class PosterImage extends StatelessWidget {
         child: ClipRRect(
           borderRadius:
               borderRadius ?? BorderRadius.circular(AppTheme.radiusLarge),
-          child: _buildImageWithFallbacks(fullImageUrl, theme),
-        ),
-      ),
-    );
-  }
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: fit,
+            placeholder: (context, url) => Container(
+              color: theme.colorScheme.surfaceVariant,
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) {
+              print('Image error: $error for URL: $url');
 
-  Widget _buildImageWithFallbacks(String imageUrl, ThemeData theme) {
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: fit,
-      maxHeightDiskCache: 900,
-      memCacheHeight: 900,
-      fadeOutDuration: const Duration(milliseconds: 300),
-      fadeInDuration: const Duration(milliseconds: 300),
-      placeholderFadeInDuration: const Duration(milliseconds: 300),
-      errorListener: (error) {
-        debugPrint('Image loading error: $error for URL: $imageUrl');
-      },
-      placeholder: (_, __) => Container(
-        color: theme.colorScheme.surfaceVariant,
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      errorWidget: (context, url, error) {
-        // Try first fallback if using w780
-        if (url.contains('w780') && !posterPath.startsWith('http')) {
-          final fallbackUrl = '$_fallbackImageUrl$posterPath';
-          return _buildFallbackImage(fallbackUrl, theme);
-        }
-        // Try second fallback if using w500
-        else if (url.contains('w500') && !posterPath.startsWith('http')) {
-          final fallbackUrl = '$_fallbackImageUrl2$posterPath';
-          return _buildFallbackImage(fallbackUrl, theme);
-        }
-        // Try final fallback if using w342
-        else if (url.contains('w342') && !posterPath.startsWith('http')) {
-          final fallbackUrl = '$_fallbackImageUrl3$posterPath';
-          return _buildFallbackImage(fallbackUrl, theme);
-        }
-        return _buildErrorPlaceholder(theme);
-      },
-    );
-  }
+              // If high quality failed, try with lower quality
+              if (highQuality && url.contains('w500')) {
+                final fallbackUrl = url.replaceFirst('w500', 'w185');
+                print('Trying fallback URL: $fallbackUrl');
 
-  Widget _buildFallbackImage(String imageUrl, ThemeData theme) {
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: fit,
-      fadeOutDuration: const Duration(milliseconds: 300),
-      fadeInDuration: const Duration(milliseconds: 300),
-      placeholder: (_, __) => Container(
-        color: theme.colorScheme.surfaceVariant,
-        child: const Center(
-          child: CircularProgressIndicator(),
+                return CachedNetworkImage(
+                  imageUrl: fallbackUrl,
+                  fit: fit,
+                  placeholder: (context, url) => Container(
+                    color: theme.colorScheme.surfaceVariant,
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) {
+                    return _buildErrorPlaceholder(theme);
+                  },
+                );
+              }
+
+              return _buildErrorPlaceholder(theme);
+            },
+          ),
         ),
       ),
-      errorWidget: (_, __, ___) => _buildErrorPlaceholder(theme),
     );
   }
 
@@ -137,7 +128,7 @@ class PosterImage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.broken_image_rounded,
+              Icons.image_not_supported_outlined,
               size: 40,
               color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
             ),

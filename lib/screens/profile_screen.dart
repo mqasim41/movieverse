@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../config/theme.dart';
+import '../widgets/common/profile_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -113,17 +114,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 20),
 
             // Profile picture
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-              backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
-              child: photoURL == null
-                  ? Icon(
-                      Icons.person,
-                      size: 50,
-                      color: theme.colorScheme.primary,
-                    )
-                  : null,
+            ProfileImage(
+              imageUrl: photoURL,
+              size: 100,
             ),
 
             const SizedBox(height: 16),

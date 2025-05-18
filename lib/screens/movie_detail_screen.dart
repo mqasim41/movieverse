@@ -188,6 +188,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                             fit: BoxFit.cover,
                             aspectRatio: 16 / 9,
                             borderRadius: BorderRadius.zero,
+                            highQuality: true,
                           ),
 
                           // Gradient overlay
