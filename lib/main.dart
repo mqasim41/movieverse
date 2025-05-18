@@ -10,6 +10,7 @@ import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'services/tmdb_api_service.dart';
+import 'services/recommendation_service.dart';
 import 'config/theme.dart';
 import 'firebase_options.dart';
 import 'package:flutter/foundation.dart';
@@ -96,13 +97,16 @@ class MovieVerseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider(create: (_) => TmdbApiService()),
+        Provider(create: (_) => RecommendationService()),
         ChangeNotifierProvider(create: (_) => AuthService()),
         // Initialize HomeViewModel lazily when needed and maintain instance
         ChangeNotifierProxyProvider<AuthService, HomeViewModel>(
-          create: (_) => HomeViewModel(TmdbApiService()),
-          update: (_, auth, previousViewModel) {
+          create: (context) => HomeViewModel(context.read<TmdbApiService>()),
+          update: (context, auth, previousViewModel) {
             // Keep the previous view model instance to avoid state rebuilds
-            return previousViewModel ?? HomeViewModel(TmdbApiService());
+            return previousViewModel ??
+                HomeViewModel(context.read<TmdbApiService>());
           },
         ),
       ],

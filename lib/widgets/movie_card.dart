@@ -30,10 +30,31 @@ class _MovieCardState extends State<MovieCard> {
   bool _isFavorite = false;
   bool _isLoading = false;
   final FirestoreService _firestoreService = FirestoreService();
+  String? _previousMovieId;
 
   @override
   void initState() {
     super.initState();
+    _previousMovieId = widget.movie.id.toString();
+    _checkIfFavorite();
+  }
+
+  @override
+  void didUpdateWidget(MovieCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Check if movie ID changed or if we need to refresh favorite status
+    if (oldWidget.movie.id != widget.movie.id) {
+      _previousMovieId = widget.movie.id.toString();
+      _checkIfFavorite();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh favorite status when dependencies change
+    // This helps when navigating back from details screen
     _checkIfFavorite();
   }
 
@@ -64,8 +85,16 @@ class _MovieCardState extends State<MovieCard> {
       _isLoading = true;
     });
 
+    // Store previous state to revert if operation fails
+    final previousState = _isFavorite;
+
+    // Optimistic UI update
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+
     try {
-      if (_isFavorite) {
+      if (previousState) {
         // Remove from favorites
         await _firestoreService.removeFromFavorites(
             user.uid, widget.movie.id.toString());
@@ -73,13 +102,14 @@ class _MovieCardState extends State<MovieCard> {
         // Add to favorites
         await _firestoreService.addToFavorites(user.uid, widget.movie.toJson());
       }
-
+    } catch (e) {
+      // Revert to previous state if operation fails
       if (mounted) {
         setState(() {
-          _isFavorite = !_isFavorite;
+          _isFavorite = previousState;
         });
       }
-    } catch (e) {
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update favorites: ${e.toString()}'),
@@ -123,11 +153,11 @@ class _MovieCardState extends State<MovieCard> {
           // Calculate available width to set proper height constraints
           final width = constraints.maxWidth;
           final imageHeight = widget.compact
-              ? width * (9 / 16) // 16:9 ratio for compact
+              ? width * (3 / 5) // More compact aspect ratio for recommendations
               : width * (3 / 2); // 2:3 ratio for normal
 
-          // Increase text section height to prevent overflow
-          final textHeight = widget.compact ? 45.0 : 55.0;
+          // Adjust text section height for compact mode
+          final textHeight = widget.compact ? 35.0 : 55.0;
 
           // Total height of the card
           final totalHeight = imageHeight + textHeight;
@@ -209,10 +239,11 @@ class _MovieCardState extends State<MovieCard> {
                   width: width,
                   padding: EdgeInsets.symmetric(
                     horizontal: widget.compact
-                        ? AppTheme.paddingSmall
+                        ? AppTheme.paddingSmall / 2
                         : AppTheme.paddingMedium,
-                    vertical:
-                        AppTheme.paddingSmall / 2, // Reduce vertical padding
+                    vertical: widget.compact
+                        ? AppTheme.paddingSmall / 3
+                        : AppTheme.paddingSmall / 2,
                   ),
                   child: widget.movie.releaseYear != null && !widget.compact
                       ? Column(

@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../widgets/movie_card.dart';
 import '../widgets/common/app_bar.dart';
+import '../widgets/common/poster_image.dart';
+import '../widgets/common/rating_badge.dart';
 import '../config/theme.dart';
 import 'profile_screen.dart';
+import 'movie_detail_screen.dart';
 import '../models/movie.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -32,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final vm = context.read<HomeViewModel>();
     await vm.loadPopular();
     await vm.loadFavorites();
+    await vm.loadRecommendations();
 
     // Preloading removed for now as it might be causing issues
   }
@@ -55,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onRefresh: () async {
                 if (_selectedIndex == 0) {
                   await vm.loadPopular();
+                  await vm.loadRecommendations();
                 } else if (_selectedIndex == 2) {
                   await vm.loadFavorites();
                 }
@@ -65,6 +70,222 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? _buildErrorWidget(vm.error!)
                       : CustomScrollView(
                           slivers: [
+                            if (_selectedIndex == 0 &&
+                                vm.recommendations.isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        AppTheme.paddingMedium,
+                                        AppTheme.paddingMedium,
+                                        AppTheme.paddingMedium,
+                                        AppTheme.paddingSmall,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.recommend,
+                                                color:
+                                                    theme.colorScheme.primary,
+                                                size: 24,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Recommended For You',
+                                                style:
+                                                    theme.textTheme.titleLarge,
+                                              ),
+                                            ],
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.refresh),
+                                            onPressed: () {
+                                              vm.loadRecommendations();
+                                            },
+                                            tooltip: 'Refresh recommendations',
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height: 180,
+                                      child: ListView.builder(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal:
+                                              AppTheme.paddingMedium / 2,
+                                        ),
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: vm.recommendations.length,
+                                        itemBuilder: (context, index) {
+                                          final movie =
+                                              vm.recommendations[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal:
+                                                  AppTheme.paddingSmall / 2,
+                                              vertical:
+                                                  AppTheme.paddingSmall / 2,
+                                            ),
+                                            child: InkWell(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        MovieDetailScreen(
+                                                            movie: movie),
+                                                  ),
+                                                );
+                                              },
+                                              child: Container(
+                                                width: 280,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                    AppTheme.radiusMedium,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.2),
+                                                      blurRadius: 5,
+                                                      offset:
+                                                          const Offset(0, 3),
+                                                    ),
+                                                  ],
+                                                ),
+                                                clipBehavior: Clip.antiAlias,
+                                                child: Stack(
+                                                  children: [
+                                                    // Backdrop/poster image as background
+                                                    Positioned.fill(
+                                                      child: PosterImage(
+                                                        posterPath:
+                                                            movie.posterPath,
+                                                        showShadow: false,
+                                                      ),
+                                                    ),
+                                                    // Gradient overlay for better text visibility
+                                                    Positioned.fill(
+                                                      child: Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          gradient:
+                                                              LinearGradient(
+                                                            begin: Alignment
+                                                                .topCenter,
+                                                            end: Alignment
+                                                                .bottomCenter,
+                                                            colors: [
+                                                              Colors
+                                                                  .transparent,
+                                                              Colors.black
+                                                                  .withOpacity(
+                                                                      0.7),
+                                                            ],
+                                                            stops: const [
+                                                              0.6,
+                                                              1.0
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    // Rating badge
+                                                    Positioned(
+                                                      top: 8,
+                                                      right: 8,
+                                                      child: RatingBadge(
+                                                        rating: movie.rating,
+                                                        size: RatingBadgeSize
+                                                            .medium,
+                                                      ),
+                                                    ),
+                                                    // Movie info at bottom
+                                                    Positioned(
+                                                      left: 12,
+                                                      right: 12,
+                                                      bottom: 10,
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            movie.title,
+                                                            style: theme
+                                                                .textTheme
+                                                                .titleMedium
+                                                                ?.copyWith(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                          if (movie
+                                                                  .releaseYear !=
+                                                              null)
+                                                            Text(
+                                                              movie.releaseYear
+                                                                  .toString(),
+                                                              style: theme
+                                                                  .textTheme
+                                                                  .bodySmall
+                                                                  ?.copyWith(
+                                                                color: Colors
+                                                                    .white70,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        AppTheme.paddingMedium,
+                                        AppTheme.paddingMedium,
+                                        AppTheme.paddingMedium,
+                                        AppTheme.paddingSmall,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.movie_outlined,
+                                            color: theme.colorScheme.primary,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Popular Movies',
+                                            style: theme.textTheme.titleLarge,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             SliverPadding(
                               padding:
                                   const EdgeInsets.all(AppTheme.paddingMedium),
@@ -89,6 +310,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Load data for the selected tab
             if (index == 0) {
               vm.loadPopular();
+              vm.loadRecommendations();
             } else if (index == 2) {
               vm.loadFavorites();
             }

@@ -3,14 +3,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/movie.dart';
 import '../services/tmdb_api_service.dart';
 import '../services/firestore_service.dart';
+import '../services/recommendation_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final TmdbApiService _apiService;
   final FirestoreService _firestoreService = FirestoreService();
+  final RecommendationService _recommendationService = RecommendationService();
 
   List<Movie> _popular = [];
   List<Movie> _favorites = [];
   List<Movie> _searchResults = [];
+  List<Movie> _recommendations = [];
   bool _isLoading = false;
   String? _error;
 
@@ -19,6 +22,7 @@ class HomeViewModel extends ChangeNotifier {
   List<Movie> get popular => _popular;
   List<Movie> get favorites => _favorites;
   List<Movie> get searchResults => _searchResults;
+  List<Movie> get recommendations => _recommendations;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -64,6 +68,32 @@ class HomeViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _error = 'Failed to load favorites: ${e.toString()}';
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Load movie recommendations based on favorites
+  Future<void> loadRecommendations() async {
+    final user = FirebaseAuth.instance.currentUser;
+    // If no user is logged in, return popular movies as recommendations
+    if (user == null) {
+      _recommendations = _popular;
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    _error = null;
+
+    try {
+      final recommendedMovies =
+          await _recommendationService.getRecommendations(user.uid);
+      _recommendations = recommendedMovies;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to load recommendations: ${e.toString()}';
       notifyListeners();
     } finally {
       _setLoading(false);
@@ -118,6 +148,9 @@ class HomeViewModel extends ChangeNotifier {
           _favorites.add(movie);
         }
       }
+
+      // Refresh recommendations when favorites change
+      loadRecommendations();
 
       notifyListeners();
     } catch (e) {
