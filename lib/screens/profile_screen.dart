@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../config/theme.dart';
@@ -21,11 +22,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Stream<Map<String, dynamic>?>? _profileStream;
   Stream<int>? _watchHistoryCountStream;
   Stream<int>? _favoritesCountStream;
+  StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
-    _initProfileStream();
+    _setupAuthListener();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupAuthListener() {
+    // Listen for auth state changes and update streams accordingly
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      _initProfileStream();
+    });
   }
 
   void _initProfileStream() {
@@ -36,6 +51,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _firestoreService.getWatchHistoryCountStream(user.uid);
       _favoritesCountStream =
           _firestoreService.getFavoritesCountStream(user.uid);
+    } else {
+      _profileStream = null;
+      _watchHistoryCountStream = null;
+      _favoritesCountStream = null;
+    }
+
+    // Force refresh UI
+    if (mounted) {
+      setState(() {});
     }
   }
 

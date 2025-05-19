@@ -18,14 +18,28 @@ class HomeViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   StreamSubscription<List<Map<String, dynamic>>>? _favoritesSubscription;
+  StreamSubscription<User?>? _authSubscription;
+  String? _currentUserId;
 
   HomeViewModel(this._apiService) {
-    _subscribeToFavorites();
+    // Listen for auth state changes and update accordingly
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      final newUserId = user?.uid;
+      if (_currentUserId != newUserId) {
+        _currentUserId = newUserId;
+        // Clear favorites when user changes
+        _favorites = [];
+        notifyListeners();
+        // Resubscribe with new user
+        _subscribeToFavorites();
+      }
+    });
   }
 
   @override
   void dispose() {
     _favoritesSubscription?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 
